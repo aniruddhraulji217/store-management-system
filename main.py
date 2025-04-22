@@ -32,7 +32,10 @@ class MainApplication:
         from pages.product_management import ProductManagement
         from pages.user_management import UserManagement
         from pages.supplier_management import SupplierManagement
-        from pages.purchase_management import PurchaseManagement  # <-- Add this line
+        from pages.purchase_management import PurchaseManagement
+        from pages.inventory_management import InventoryManagement
+        from pages.customer_management import CustomerManagement  # <-- Add this line
+        from pages.sales_management import SalesManagement        # <-- Add this line
 
         self.pages = {}
 
@@ -41,9 +44,15 @@ class MainApplication:
             self.pages["ProductManagement"] = ProductManagement(self.root, self)
             self.pages["UserManagement"] = UserManagement(self.root, self)
             self.pages["SupplierManagement"] = SupplierManagement(self.root, self)
-            self.pages["PurchaseManagement"] = PurchaseManagement(self.root, self)  # <-- Add this line
+            self.pages["PurchaseManagement"] = PurchaseManagement(self.root, self)
+            self.pages["Inventory"] = InventoryManagement(self.root, self)
+            self.pages["CustomerManagement"] = CustomerManagement(self.root, self)  # <-- Add this line
+            self.pages["SalesManagement"] = SalesManagement(self.root, self)        # <-- Add this line
         else:
             self.pages["Dashboard"] = UserDashboard(self.root, self)
+            self.pages["Inventory"] = InventoryManagement(self.root, self)
+            self.pages["CustomerManagement"] = CustomerManagement(self.root, self)  # <-- Add this line
+            self.pages["SalesManagement"] = SalesManagement(self.root, self)        # <-- Add this line
 
     def show_page(self, page_name):
         for widget in self.root.winfo_children():
@@ -65,10 +74,19 @@ class MainApplication:
             page = UserManagement(self.root, self)
         elif page_name == "SupplierManagement":
             from pages.supplier_management import SupplierManagement
-            page = SupplierManagement(self.root, self)  # <-- Add this line
+            page = SupplierManagement(self.root, self)
         elif page_name == "PurchaseManagement":
             from pages.purchase_management import PurchaseManagement
             page = PurchaseManagement(self.root, self)
+        elif page_name == "Inventory":
+            from pages.inventory_management import InventoryManagement
+            page = InventoryManagement(self.root, self)  
+        elif page_name == "CustomerManagement":
+            from pages.customer_management import CustomerManagement
+            page = CustomerManagement(self.root, self)
+        elif page_name == "SalesManagement":
+            from pages.sales_management import SalesManagement
+            page = SalesManagement(self.root, self)
         else:
             messagebox.showerror("Error", f"Unknown page: {page_name}")
             return

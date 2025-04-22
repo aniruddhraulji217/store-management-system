@@ -118,10 +118,13 @@ class PurchaseManagement(BasePage):
                 return
 
             try:
+                # --- Begin Transaction ---
+                self.db.start_transaction()
+
                 # Insert into purchases
                 self.cursor.execute(
-                    "INSERT INTO purchases (supplier_id, date, total_amount) VALUES (%s, %s, %s)",
-                    (supplier_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), total_amount)
+                    "INSERT INTO purchases (supplier_id, date, total_amount) VALUES (%s, NOW(), %s)",
+                    (supplier_id, total_amount)
                 )
                 purchase_id = self.cursor.lastrowid
 
@@ -131,15 +134,20 @@ class PurchaseManagement(BasePage):
                         "INSERT INTO purchase_items (purchase_id, product_id, quantity, price) VALUES (%s, %s, %s, %s)",
                         (purchase_id, product_id, qty, price)
                     )
+                    # --- Update stock atomically ---
                     self.cursor.execute(
                         "UPDATE products SET quantity = quantity + %s WHERE product_id = %s",
                         (qty, product_id)
                     )
+
                 self.db.commit()
+                # --- End Transaction ---
+
                 self.load_purchases()
                 form.destroy()
                 messagebox.showinfo("Success", "Purchase recorded and stock updated.")
             except Exception as e:
+                self.db.rollback()
                 messagebox.showerror("Database Error", f"Failed to record purchase: {e}")
 
         ttk.Button(form, text="Save Purchase", command=save_purchase).pack(pady=15)

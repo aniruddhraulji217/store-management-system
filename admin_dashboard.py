@@ -70,3 +70,17 @@ class AdminDashboard(BasePage):
 
         # Future: Add User Management, Reports, etc.
 
+    def show_inventory_valuation(self):
+        self.cursor.execute("SELECT SUM(quantity * cost_price) AS inventory_value FROM products")
+        value = self.cursor.fetchone()['inventory_value']
+        ttk.Label(self.content, text=f"Total Inventory Value: ₹{value:.2f}", font=('Helvetica', 12)).pack(pady=10)
+
+    def show_user_performance(self):
+        self.cursor.execute("""
+            SELECT u.username, COUNT(s.sale_id) AS sales_count, SUM(s.total_amount) AS total_sales
+            FROM users u
+            LEFT JOIN sales s ON u.user_id = s.user_id
+            GROUP BY u.user_id
+        """)
+        # ... display in a table ...
+

@@ -183,3 +183,35 @@ class ProductManagement(BasePage):
         ttk.Button(btn_frame, text="Save", command=save).pack(side=tk.LEFT, padx=10)
         ttk.Button(btn_frame, text="Cancel", command=form.destroy).pack(side=tk.LEFT, padx=10)
 
+    def manual_adjust_stock(self):
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showwarning("No Selection", "Please select a product to adjust stock.")
+            return
+        product_id = self.tree.item(selected[0], 'values')[0]
+
+        form = tk.Toplevel(self)
+        form.title("Adjust Stock")
+        form.geometry("300x200")
+        qty_var = tk.StringVar()
+
+        ttk.Label(form, text="Adjustment Amount (+/-):").pack(pady=10)
+        ttk.Entry(form, textvariable=qty_var).pack(pady=5)
+
+        def save_adjustment():
+            try:
+                adj = int(qty_var.get())
+                self.cursor.execute(
+                    "UPDATE products SET quantity = quantity + %s WHERE product_id = %s",
+                    (adj, product_id)
+                )
+                self.db.commit()
+                self.load_products()
+                form.destroy()
+                messagebox.showinfo("Success", "Stock adjusted.")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to adjust stock: {e}")
+
+        ttk.Button(form, text="Save", command=save_adjustment).pack(pady=10)
+        ttk.Button(form, text="Cancel", command=form.destroy).pack()
+

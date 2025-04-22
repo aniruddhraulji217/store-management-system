@@ -40,6 +40,8 @@ class BasePage(tk.Frame):
 
         ttk.Button(self.sidebar, text="Dashboard", command=lambda: self.controller.show_page("Dashboard")).pack(fill=tk.X, pady=2)
         ttk.Button(self.sidebar, text="Inventory", command=lambda: self.controller.show_page("Inventory")).pack(fill=tk.X, pady=2)
+        ttk.Button(self.sidebar, text="Customer Management", command=lambda: self.controller.show_page("CustomerManagement")).pack(fill=tk.X, pady=2)
+        ttk.Button(self.sidebar, text="Sales Management", command=lambda: self.controller.show_page("SalesManagement")).pack(fill=tk.X, pady=2)
         # More menu buttons (Reports, Settings) can go here
 
     def create_main_content(self):
