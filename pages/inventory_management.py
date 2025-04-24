@@ -41,11 +41,11 @@ class InventoryManagement(BasePage):
             ttk.Button(top_frame, text="Add Product", command=self.add_product).pack(side=tk.RIGHT, padx=5)
 
         # Inventory Table
-        columns = ("ID", "Name", "Category", "Quantity", "Unit Price", "Total Value")
+        columns = ("ID", "Name", "Category", "Quantity", "Unit Price", "Cost Price", "Total Cost", "Supplier")
         self.tree = ttk.Treeview(self.content, columns=columns, show='headings', height=15)
         for col in columns:
             self.tree.heading(col, text=col)
-            self.tree.column(col, anchor=tk.CENTER, width=120 if col not in ("Name", "Total Value") else 180)
+            self.tree.column(col, anchor=tk.CENTER, width=120 if col not in ("Name", "Total Cost") else 180)
         self.tree.pack(fill=tk.BOTH, expand=True, pady=5)
         self.tree.bind("<Double-1>", self.on_row_double_click)
 
@@ -68,15 +68,19 @@ class InventoryManagement(BasePage):
         low_stock = self.low_stock_only.get()
         for i in self.tree.get_children():
             self.tree.delete(i)
-        query = "SELECT product_id, name, category, quantity, price FROM products"
+        query = """
+            SELECT p.product_id, p.name, p.category, p.quantity, p.price, p.cost_price, s.name as supplier
+            FROM products p
+            LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
+        """
         params = ()
         where = []
         if search:
-            where.append("(name LIKE %s OR category LIKE %s)")
+            where.append("(p.name LIKE %s OR p.category LIKE %s OR s.name LIKE %s)")
             like = f"%{search}%"
-            params += (like, like)
+            params += (like, like, like)
         if low_stock:
-            where.append("quantity < 10")
+            where.append("p.quantity < 10")
         if where:
             query += " WHERE " + " AND ".join(where)
         self.cursor.execute(query, params)
@@ -84,9 +88,12 @@ class InventoryManagement(BasePage):
         total_items = 0
         for row in self.cursor.fetchall():
             value = row['quantity'] * row['price']
+            total_cost = row['quantity'] * (row['cost_price'] if row['cost_price'] else 0)
             total_value += value
             total_items += row['quantity']
-            self.tree.insert('', 'end', values=(row['product_id'], row['name'], row['category'], row['quantity'], row['price'], value))
+            self.tree.insert('', 'end', values=(
+                row['product_id'], row['name'], row['category'], row['quantity'],
+                row['price'], row['cost_price'], total_cost, row['supplier'] or ""))
         self.summary_label.config(text=f"Total Items: {total_items}    Inventory Value: ₹{total_value:,.2f}")
 
     def on_row_double_click(self, event):
@@ -98,20 +105,54 @@ class InventoryManagement(BasePage):
     def add_product(self):
         form = tk.Toplevel(self)
         form.title("Add Product")
-        form.geometry("350x350")
-        fields = ["Name", "Category", "Quantity", "Unit Price"]
-        vars = {f: tk.StringVar() for f in fields}
-        for i, f in enumerate(fields):
-            ttk.Label(form, text=f).pack(pady=5)
-            ttk.Entry(form, textvariable=vars[f]).pack()
+        form.geometry("400x500")
+        # Fetch suppliers for dropdown
+        self.cursor.execute("SELECT supplier_id, name FROM suppliers")
+        suppliers = self.cursor.fetchall()
+        supplier_dict = {s['name']: s['supplier_id'] for s in suppliers}
+        supplier_names = list(supplier_dict.keys())
+        # Fields
+        fields = [
+            ("Name", tk.StringVar()),
+            ("Category", tk.StringVar()),
+            ("Quantity", tk.StringVar()),
+            ("Unit Price", tk.StringVar()),
+            ("Cost Price", tk.StringVar()),
+            ("Supplier", tk.StringVar(value=supplier_names[0] if supplier_names else "")),
+            ("Description", tk.StringVar())
+        ]
+        for label, var in fields:
+            ttk.Label(form, text=label).pack(pady=5)
+            if label == "Supplier":
+                ttk.Combobox(form, textvariable=var, values=supplier_names, state='readonly').pack(fill=tk.X, padx=10)
+            else:
+                ttk.Entry(form, textvariable=var).pack(fill=tk.X, padx=10)
         def save():
+            name = fields[0][1].get().strip()
+            category = fields[1][1].get().strip()
+            try:
+                quantity = int(fields[2][1].get())
+                price = float(fields[3][1].get())
+                cost_price = float(fields[4][1].get())
+            except ValueError:
+                messagebox.showerror("Input Error", "Quantity, Unit Price, and Cost Price must be valid numbers.")
+                return
+            supplier_name = fields[5][1].get()
+            supplier_id = supplier_dict.get(supplier_name)
+            description = fields[6][1].get().strip()
+            if not (name and category and supplier_id and description):
+                messagebox.showerror("Input Error", "All fields are required.")
+                return
+            if quantity < 0 or price < 0 or cost_price < 0:
+                messagebox.showerror("Input Error", "Quantity and prices must be non-negative.")
+                return
             try:
                 self.cursor.execute(
-                    "INSERT INTO products (name, category, quantity, price) VALUES (%s, %s, %s, %s)",
-                    (vars["Name"].get(), vars["Category"].get(), int(vars["Quantity"].get()), float(vars["Unit Price"].get()))
+                    "INSERT INTO products (name, category, quantity, price, cost_price, supplier_id, description) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                    (name, category, quantity, price, cost_price, supplier_id, description)
                 )
                 self.db.commit()
-                self.audit_log.append(f"Added product: {vars['Name'].get()}")
+                self.audit_log.append(f"Added product: {name}")
                 self.load_inventory()
                 form.destroy()
                 messagebox.showinfo("Success", "Product added.")
@@ -128,20 +169,54 @@ class InventoryManagement(BasePage):
         values = self.tree.item(selected[0], 'values')
         form = tk.Toplevel(self)
         form.title("Edit Product")
-        form.geometry("350x350")
-        fields = ["Name", "Category", "Quantity", "Unit Price"]
-        vars = {f: tk.StringVar(value=values[i+1]) for i, f in enumerate(fields)}
-        for i, f in enumerate(fields):
-            ttk.Label(form, text=f).pack(pady=5)
-            ttk.Entry(form, textvariable=vars[f]).pack()
+        form.geometry("400x500")
+        # Fetch suppliers for dropdown
+        self.cursor.execute("SELECT supplier_id, name FROM suppliers")
+        suppliers = self.cursor.fetchall()
+        supplier_dict = {s['name']: s['supplier_id'] for s in suppliers}
+        supplier_names = list(supplier_dict.keys())
+        # Fields
+        fields = [
+            ("Name", tk.StringVar(value=values[1])),
+            ("Category", tk.StringVar(value=values[2])),
+            ("Quantity", tk.StringVar(value=values[3])),
+            ("Unit Price", tk.StringVar(value=values[4])),
+            ("Cost Price", tk.StringVar(value=values[5])),
+            ("Supplier", tk.StringVar(value=values[7])),
+            ("Description", tk.StringVar())
+        ]
+        for label, var in fields:
+            ttk.Label(form, text=label).pack(pady=5)
+            if label == "Supplier":
+                ttk.Combobox(form, textvariable=var, values=supplier_names, state='readonly').pack(fill=tk.X, padx=10)
+            else:
+                ttk.Entry(form, textvariable=var).pack(fill=tk.X, padx=10)
         def save():
+            name = fields[0][1].get().strip()
+            category = fields[1][1].get().strip()
+            try:
+                quantity = int(fields[2][1].get())
+                price = float(fields[3][1].get())
+                cost_price = float(fields[4][1].get())
+            except ValueError:
+                messagebox.showerror("Input Error", "Quantity, Unit Price, and Cost Price must be valid numbers.")
+                return
+            supplier_name = fields[5][1].get()
+            supplier_id = supplier_dict.get(supplier_name)
+            description = fields[6][1].get().strip()
+            if not (name and category and supplier_id and description):
+                messagebox.showerror("Input Error", "All fields are required.")
+                return
+            if quantity < 0 or price < 0 or cost_price < 0:
+                messagebox.showerror("Input Error", "Quantity and prices must be non-negative.")
+                return
             try:
                 self.cursor.execute(
-                    "UPDATE products SET name=%s, category=%s, quantity=%s, price=%s WHERE product_id=%s",
-                    (vars["Name"].get(), vars["Category"].get(), int(vars["Quantity"].get()), float(vars["Unit Price"].get()), values[0])
+                    "UPDATE products SET name=%s, category=%s, quantity=%s, price=%s, cost_price=%s, supplier_id=%s, description=%s WHERE product_id=%s",
+                    (name, category, quantity, price, cost_price, supplier_id, description, values[0])
                 )
                 self.db.commit()
-                self.audit_log.append(f"Edited product: {vars['Name'].get()}")
+                self.audit_log.append(f"Edited product: {name}")
                 self.load_inventory()
                 form.destroy()
                 messagebox.showinfo("Success", "Product updated.")
