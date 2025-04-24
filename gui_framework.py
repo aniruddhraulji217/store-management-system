@@ -98,12 +98,13 @@ class BasePage(tk.Frame):
         if role == 'admin':
             menu_items = [
                 ('🏠 Dashboard', 'Dashboard'),
-                ('📦 Products', 'ProductManagement'),
+                # ('📦 Products', 'ProductManagement'),  # Removed Product Management
                 ('📦 Inventory', 'Inventory'),  # <-- Ensure Inventory is here for admin
                 ('👥 Users Management', 'UserManagement'),
                 ('🚚 Suppliers', 'SupplierManagement'),
                 ('🛒 Purchases', 'PurchaseManagement'),
                 ('📊 Reports', 'Reports'),  # <-- Change 'ReportsPage' to 'Reports'
+                ('👤 Customers', 'CustomerManagement'),  # <-- Admin can now see CustomerManagement
                 ('⚙️ Settings', 'SettingsPage')
             ]
         else:
@@ -111,7 +112,7 @@ class BasePage(tk.Frame):
                 ('🏠 Dashboard', 'Dashboard'),
                 ('📦 Inventory', 'Inventory'),
                 ('💰 Sales', 'SalesManagement'),
-                ('👤 Customers', 'CustomerManagement'),
+                ('👤 Customers', 'CustomerManagement'),  # <-- Only staff sees this now
                 ('🔄 Restock Requests', 'StockRequestManagement'),
                 ('⭐ Performance', 'PerformancePage')
             ]

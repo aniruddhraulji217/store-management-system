@@ -106,14 +106,14 @@ class SalesManagement(BasePage):
         
         # Customer details
         self.customer_name_var = tk.StringVar()
-        self.contact_no_var = tk.StringVar()
+        self.contact_var = tk.StringVar()  # <-- changed from contact_no_var
         
         ttk.Label(billing_frame, text="Customer Name:").pack(anchor='w')
         ttk.Entry(billing_frame, textvariable=self.customer_name_var).pack(fill=tk.X, padx=5)
         
-        ttk.Label(billing_frame, text="Contact No.:").pack(anchor='w')
-        ttk.Entry(billing_frame, textvariable=self.contact_no_var).pack(fill=tk.X, padx=5)
-        
+        ttk.Label(billing_frame, text="Contact:").pack(anchor='w')  # <-- changed label
+        ttk.Entry(billing_frame, textvariable=self.contact_var).pack(fill=tk.X, padx=5)  # <-- changed variable
+
         # Totals
         self.total_var = tk.StringVar(value="0.00")
         self.discount_var = tk.StringVar(value="0.00")
@@ -266,6 +266,8 @@ class SalesManagement(BasePage):
             messagebox.showwarning("Missing Info", "Please enter customer name")
             return
             
+        contact = self.contact_var.get().strip()  # <-- changed from contact_no_var
+
         try:
             # Start transaction
             if self.db.in_transaction:
@@ -274,8 +276,8 @@ class SalesManagement(BasePage):
             
             # Create/update customer record
             self.cursor.execute(
-                "INSERT INTO customers (name) VALUES (%s) ON DUPLICATE KEY UPDATE name=VALUES(name)",
-                (customer_name,)
+                "INSERT INTO customers (name, contact) VALUES (%s, %s) ON DUPLICATE KEY UPDATE name=VALUES(name), contact=VALUES(contact)",
+                (customer_name, contact)
             )
             customer_id = self.cursor.lastrowid
             
