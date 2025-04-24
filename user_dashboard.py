@@ -11,65 +11,45 @@ class UserDashboard(BasePage):
         for widget in self.content.winfo_children():
             widget.destroy()
 
-        # Display user info
         user = self.controller.current_user
-        user_info = f"Logged in as: {user['username']} ({user['role'].capitalize()})"
-        ttk.Label(self.content, text=user_info, font=('Helvetica', 10, 'italic')).pack(anchor='ne', padx=10, pady=5)
+        ttk.Label(self.content, text=f"Logged in as: {user['username']} ({user['role']})", font=('Helvetica', 10, 'italic')).pack(anchor='ne', padx=10, pady=5)
+        ttk.Label(self.content, text="User Dashboard", font=('Helvetica', 16)).pack(pady=20)
 
-        ttk.Label(self.content, text="Welcome to User Dashboard", font=('Helvetica', 16)).pack(pady=20)
+        ttk.Button(self.content, text="View Inventory", width=30, command=lambda: self.controller.show_page("Inventory")).pack(pady=10)
+        ttk.Button(self.content, text="Record Sale", width=30, command=lambda: self.controller.show_page("SalesManagement")).pack(pady=10)
+        ttk.Button(self.content, text="Sales History", width=30, command=self.show_my_sales_history).pack(pady=10)
+        ttk.Button(self.content, text="Customers", width=30, command=lambda: self.controller.show_page("CustomerManagement")).pack(pady=10)
+        ttk.Button(self.content, text="Request Restock", width=30, command=self.request_restock).pack(pady=10)
+        ttk.Button(self.content, text="My Performance", width=30, command=self.show_my_performance).pack(pady=10)
+        ttk.Button(self.content, text="Profile", width=30, command=self.edit_profile).pack(pady=10)
+        ttk.Button(self.content, text="Logout", width=30, command=self.controller.show_login).pack(pady=20)
 
-        # Inventory View
-        ttk.Button(
-            self.content,
-            text="View Inventory",
-            width=30,
-            command=lambda: self.controller.show_page("Inventory")
-        ).pack(pady=10)
-
-        # Sales Entry
-        ttk.Button(
-            self.content,
-            text="Add Sales Entry",
-            width=30,
-            command=lambda: self.controller.show_page("SalesManagement")
-        ).pack(pady=10)
-
-        # Request Restock
-        ttk.Button(
-            self.content,
-            text="Request Restock",
-            width=30,
-            command=self.request_restock
-        ).pack(pady=10)
-
-        # Optionally: View own sales history
-        ttk.Button(
-            self.content,
-            text="My Sales History",
-            width=30,
-            command=self.view_my_sales
-        ).pack(pady=10)
-
-        # Logout
-        ttk.Button(
-            self.content,
-            text="Logout",
-            width=30,
-            command=self.controller.show_login
-        ).pack(pady=20)
+    def show_my_sales_history(self):
+        # Navigate to SalesManagement and filter for this user's sales
+        self.controller.show_page("SalesManagement")
+        # Optionally, you can implement filtering in the SalesManagement page based on user role
 
     def request_restock(self):
-        # Open a dialog or page for restock request
-        from tkinter import simpledialog
+        # Simple dialog to request restock
+        from tkinter import simpledialog, messagebox
         product_name = simpledialog.askstring("Request Restock", "Enter product name to restock:")
         if product_name:
             # Here you would insert a restock request into a table or notify admin
-            # For now, just show a confirmation
-            from tkinter import messagebox
             messagebox.showinfo("Restock Requested", f"Restock request for '{product_name}' has been sent to admin.")
 
-    def view_my_sales(self):
-        # Open a filtered sales page or dialog showing only this user's sales
-        # You would implement this in your sales management page
+    def show_my_performance(self):
+        # Show a simple stats dialog for the user
         from tkinter import messagebox
-        messagebox.showinfo("My Sales", "This would show your sales history (implement filtering in SalesManagement).")
+        # You would fetch these stats from the database in a real implementation
+        stats = "Total Sales: 0\nTotal Profit: 0.00\nBest-Selling Product: N/A"
+        messagebox.showinfo("My Performance", stats)
+
+    def edit_profile(self):
+        # Simple dialog to update profile (username/password)
+        from tkinter import simpledialog, messagebox
+        new_name = simpledialog.askstring("Edit Profile", "Enter new username:", initialvalue=self.controller.current_user['username'])
+        if new_name:
+            # Here you would update the username in the database
+            self.controller.current_user['username'] = new_name
+            messagebox.showinfo("Profile Updated", "Your username has been updated.")
+            self.create_content()
