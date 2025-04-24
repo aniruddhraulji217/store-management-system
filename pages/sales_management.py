@@ -104,15 +104,29 @@ class SalesManagement(BasePage):
         billing_frame = ttk.LabelFrame(scrollable_frame, text="Customer Billing Area", padding=10)
         billing_frame.pack(fill=tk.X, padx=20, pady=10)
         
+        # Fetch customers for dropdown
+        self.customer_list = []
+        self.customer_dict = {}
+        try:
+            self.cursor.execute("SELECT customer_id, name, contact FROM customers ORDER BY name ASC")
+            for row in self.cursor.fetchall():
+                display = f"{row['name']} ({row['contact']})"
+                self.customer_list.append(display)
+                self.customer_dict[display] = (row['name'], row['contact'])
+        except Exception:
+            pass
+
         # Customer details
         self.customer_name_var = tk.StringVar()
-        self.contact_var = tk.StringVar()  # <-- changed from contact_no_var
-        
+        self.contact_var = tk.StringVar()
+
         ttk.Label(billing_frame, text="Customer Name:").pack(anchor='w')
-        ttk.Entry(billing_frame, textvariable=self.customer_name_var).pack(fill=tk.X, padx=5)
-        
-        ttk.Label(billing_frame, text="Contact:").pack(anchor='w')  # <-- changed label
-        ttk.Entry(billing_frame, textvariable=self.contact_var).pack(fill=tk.X, padx=5)  # <-- changed variable
+        customer_combo = ttk.Combobox(billing_frame, textvariable=self.customer_name_var, values=self.customer_list)
+        customer_combo.pack(fill=tk.X, padx=5)
+        customer_combo.bind("<<ComboboxSelected>>", self.on_customer_selected)
+
+        ttk.Label(billing_frame, text="Contact:").pack(anchor='w')
+        ttk.Entry(billing_frame, textvariable=self.contact_var).pack(fill=tk.X, padx=5)
 
         # Totals
         self.total_var = tk.StringVar(value="0.00")
@@ -521,3 +535,10 @@ class SalesManagement(BasePage):
                               f"Message: Bill #{bill_id} for {customer_name}: Total Rs.{net_amount:.2f}")
         except Exception as e:
             messagebox.showerror("SMS Error", f"Failed to send SMS: {str(e)}")
+
+    def on_customer_selected(self, event):
+        selected = self.customer_name_var.get()
+        if selected in self.customer_dict:
+            name, contact = self.customer_dict[selected]
+            self.customer_name_var.set(name)
+            self.contact_var.set(contact)

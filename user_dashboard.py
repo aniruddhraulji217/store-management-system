@@ -12,44 +12,51 @@ class UserDashboard(BasePage):
             widget.destroy()
 
         user = self.controller.current_user
-        ttk.Label(self.content, text=f"Logged in as: {user['username']} ({user['role']})", font=('Helvetica', 10, 'italic')).pack(anchor='ne', padx=10, pady=5)
-        ttk.Label(self.content, text="User Dashboard", font=('Helvetica', 16)).pack(pady=20)
+        ttk.Label(self.content, text=f"Welcome, {user['username']}", font=('Helvetica', 14)).pack(pady=20)
 
-        ttk.Button(self.content, text="View Inventory", width=30, command=lambda: self.controller.show_page("Inventory")).pack(pady=10)
         ttk.Button(self.content, text="Record Sale", width=30, command=lambda: self.controller.show_page("SalesManagement")).pack(pady=10)
-        ttk.Button(self.content, text="Sales History", width=30, command=self.show_my_sales_history).pack(pady=10)
-        ttk.Button(self.content, text="Customers", width=30, command=lambda: self.controller.show_page("CustomerManagement")).pack(pady=10)
-        ttk.Button(self.content, text="Request Restock", width=30, command=self.request_restock).pack(pady=10)
-        ttk.Button(self.content, text="My Performance", width=30, command=self.show_my_performance).pack(pady=10)
-        ttk.Button(self.content, text="Profile", width=30, command=self.edit_profile).pack(pady=10)
+        # Remove the old button for sales history
+        # ttk.Button(self.content, text="Sales History", width=30, command=self.show_my_sales_history).pack(pady=10)
         ttk.Button(self.content, text="Logout", width=30, command=self.controller.show_login).pack(pady=20)
 
+        # Add sales history table
+        ttk.Label(self.content, text="My Sales History", font=('Helvetica', 12, 'bold')).pack(pady=(10, 0))
+        columns = ("Sale ID", "Date", "Total Amount")
+        self.sales_tree = ttk.Treeview(self.content, columns=columns, show='headings', height=10)
+        for col in columns:
+            self.sales_tree.heading(col, text=col)
+            self.sales_tree.column(col, anchor=tk.CENTER, width=120)
+        self.sales_tree.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+        self.load_sales_history()
+
+    def load_sales_history(self):
+        # Fetch and display sales for the current user
+        import mysql.connector
+        try:
+            db = mysql.connector.connect(
+                host="localhost",
+                user="root",
+                password="Aniruddh@217",
+                database="inventory_db"
+            )
+            cursor = db.cursor(dictionary=True)
+            user_id = self.controller.current_user['user_id']
+            cursor.execute("""
+                SELECT sale_id, sale_date, total_amount
+                FROM sales
+                WHERE user_id = %s
+                ORDER BY sale_date DESC
+            """, (user_id,))
+            rows = cursor.fetchall()
+            for i in self.sales_tree.get_children():
+                self.sales_tree.delete(i)
+            for row in rows:
+                self.sales_tree.insert('', 'end', values=(row['sale_id'], row['sale_date'], row['total_amount']))
+            cursor.close()
+            db.close()
+        except Exception as e:
+            from tkinter import messagebox
+            messagebox.showerror("Database Error", f"Failed to load sales history: {e}")
+
     def show_my_sales_history(self):
-        # Navigate to SalesManagement and filter for this user's sales
         self.controller.show_page("SalesManagement")
-        # Optionally, you can implement filtering in the SalesManagement page based on user role
-
-    def request_restock(self):
-        # Simple dialog to request restock
-        from tkinter import simpledialog, messagebox
-        product_name = simpledialog.askstring("Request Restock", "Enter product name to restock:")
-        if product_name:
-            # Here you would insert a restock request into a table or notify admin
-            messagebox.showinfo("Restock Requested", f"Restock request for '{product_name}' has been sent to admin.")
-
-    def show_my_performance(self):
-        # Show a simple stats dialog for the user
-        from tkinter import messagebox
-        # You would fetch these stats from the database in a real implementation
-        stats = "Total Sales: 0\nTotal Profit: 0.00\nBest-Selling Product: N/A"
-        messagebox.showinfo("My Performance", stats)
-
-    def edit_profile(self):
-        # Simple dialog to update profile (username/password)
-        from tkinter import simpledialog, messagebox
-        new_name = simpledialog.askstring("Edit Profile", "Enter new username:", initialvalue=self.controller.current_user['username'])
-        if new_name:
-            # Here you would update the username in the database
-            self.controller.current_user['username'] = new_name
-            messagebox.showinfo("Profile Updated", "Your username has been updated.")
-            self.create_content()

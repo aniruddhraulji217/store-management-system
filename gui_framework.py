@@ -112,9 +112,8 @@ class BasePage(tk.Frame):
                 ('🏠 Dashboard', 'Dashboard'),
                 ('📦 Inventory', 'Inventory'),
                 ('💰 Sales', 'SalesManagement'),
-                ('👤 Customers', 'CustomerManagement'),  # <-- Only staff sees this now
-                ('🔄 Restock Requests', 'StockRequestManagement'),
-                ('⭐ Performance', 'PerformancePage')
+                ('👤 Customers', 'CustomerManagement') # <-- Only staff sees this now
+              
             ]
         self.menu_buttons = []
         for label, page in menu_items:

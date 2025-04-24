@@ -87,48 +87,81 @@ class CustomerManagement(BasePage):
     def open_customer_form(self, title, customer=None):
         form = tk.Toplevel(self)
         form.title(title)
-        form.geometry("350x350")
+        form.geometry("350x400")
         form.resizable(False, False)
 
         name_var = tk.StringVar(value=customer[1] if customer else "")
-        phone_var = tk.StringVar(value=customer[2] if customer else "")
+        contact_var = tk.StringVar(value=customer[2] if customer else "")
         email_var = tk.StringVar(value=customer[3] if customer else "")
         address_var = tk.StringVar(value=customer[4] if customer else "")
 
-        ttk.Label(form, text="Name:").pack(anchor='w', padx=20, pady=(20, 2))
+        ttk.Label(form, text="Name *:").pack(anchor='w', padx=20, pady=(20, 2))
         name_entry = ttk.Entry(form, textvariable=name_var)
         name_entry.pack(fill=tk.X, padx=20)
 
-        ttk.Label(form, text="Phone:").pack(anchor='w', padx=20, pady=(10, 2))
-        phone_entry = ttk.Entry(form, textvariable=phone_var)
-        phone_entry.pack(fill=tk.X, padx=20)
+        ttk.Label(form, text="Contact *:").pack(anchor='w', padx=20, pady=(10, 2))
+        contact_entry = ttk.Entry(form, textvariable=contact_var)
+        contact_entry.pack(fill=tk.X, padx=20)
 
-        ttk.Label(form, text="Email:").pack(anchor='w', padx=20, pady=(10, 2))
+        ttk.Label(form, text="Email *:").pack(anchor='w', padx=20, pady=(10, 2))
         email_entry = ttk.Entry(form, textvariable=email_var)
         email_entry.pack(fill=tk.X, padx=20)
 
-        ttk.Label(form, text="Address:").pack(anchor='w', padx=20, pady=(10, 2))
+        ttk.Label(form, text="Address *:").pack(anchor='w', padx=20, pady=(10, 2))
         address_entry = ttk.Entry(form, textvariable=address_var)
         address_entry.pack(fill=tk.X, padx=20)
 
         def save():
+            import re
             name = name_var.get().strip()
-            phone = phone_var.get().strip()
+            contact = contact_var.get().strip()
             email = email_var.get().strip()
             address = address_var.get().strip()
+
+            # Validation
             if not name:
                 messagebox.showerror("Input Error", "Name is required.")
                 return
+            if not contact:
+                messagebox.showerror("Input Error", "Contact is required.")
+                return
+            # Phone number validation (10-15 digits, can be improved as needed)
+            if not re.fullmatch(r"\d{10,15}", contact):
+                messagebox.showerror("Input Error", "Contact must be 10-15 digits.")
+                return
+            if not email:
+                messagebox.showerror("Input Error", "Email is required.")
+                return
+            # Email format validation
+            if not re.fullmatch(r"[^@]+@[^@]+\.[^@]+", email):
+                messagebox.showerror("Input Error", "Invalid email format.")
+                return
+            if not address:
+                messagebox.showerror("Input Error", "Address is required.")
+                return
+
+            # Uniqueness checks (skip for edit if value unchanged)
             try:
+                if not customer or (customer and contact != customer[2]):
+                    self.cursor.execute("SELECT COUNT(*) as cnt FROM customers WHERE contact=%s", (contact,))
+                    if self.cursor.fetchone()['cnt'] > 0:
+                        messagebox.showerror("Input Error", "Contact already exists.")
+                        return
+                if not customer or (customer and email != customer[3]):
+                    self.cursor.execute("SELECT COUNT(*) as cnt FROM customers WHERE email=%s", (email,))
+                    if self.cursor.fetchone()['cnt'] > 0:
+                        messagebox.showerror("Input Error", "Email already exists.")
+                        return
+
                 if customer:
                     self.cursor.execute("""
-                        UPDATE customers SET name=%s, phone=%s, email=%s, address=%s WHERE customer_id=%s
-                    """, (name, phone, email, address, customer[0]))
+                        UPDATE customers SET name=%s, contact=%s, email=%s, address=%s WHERE customer_id=%s
+                    """, (name, contact, email, address, customer[0]))
                 else:
                     self.cursor.execute("""
-                        INSERT INTO customers (name, phone, email, address)
+                        INSERT INTO customers (name, contact, email, address)
                         VALUES (%s, %s, %s, %s)
-                    """, (name, phone, email, address))
+                    """, (name, contact, email, address))
                 self.db.commit()
                 self.load_customers()
                 form.destroy()
@@ -148,16 +181,16 @@ class CustomerManagement(BasePage):
             return
         customer_id = self.tree.item(selected[0], 'values')[0]
         self.cursor.execute("""
-            SELECT s.sale_id, s.date, s.total_amount
+            SELECT s.sale_id, s.sale_date, s.total_amount
             FROM sales s
             WHERE s.customer_id = %s
-            ORDER BY s.date DESC
+            ORDER BY s.sale_date DESC
         """, (customer_id,))
         sales = self.cursor.fetchall()
         info = "Sales History:\n"
         if sales:
             for s in sales:
-                info += f"ID: {s['sale_id']} | Date: {s['date']} | Amount: {s['total_amount']}\n"
+                info += f"ID: {s['sale_id']} | Date: {s['sale_date']} | Amount: {s['total_amount']}\n"
         else:
             info += "No sales found."
         messagebox.showinfo("Customer Sales", info)
