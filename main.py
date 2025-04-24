@@ -7,11 +7,14 @@ class MainApplication:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Store Management System")
-        self.root.geometry("1200x800")
+        self.root.geometry("1200x800")  # Adjust size as needed
         self.current_user = None
         self.pages = {}
         self.history = []
-        
+        self.future = []  # Add this line to track redo history
+        self.root.bind('<Control-z>', lambda event: self.go_back())  # Existing undo binding
+        self.root.bind('<Control-y>', lambda event: self.go_forward())  # Add this line for redo
+
         self.show_login()
 
     def show_login(self):
@@ -47,14 +50,14 @@ class MainApplication:
             self.pages["PurchaseManagement"] = PurchaseManagement(self.root, self)
             self.pages["Inventory"] = InventoryManagement(self.root, self)
             self.pages["CustomerManagement"] = CustomerManagement(self.root, self)  # <-- Add this line
-            self.pages["SalesManagement"] = SalesManagement(self.root, self)        # <-- Add this line
+            self.pages["SalesManagement"] = SalesManagement(self.root, self)  # Add back the second argument
         else:
             self.pages["Dashboard"] = UserDashboard(self.root, self)
             self.pages["Inventory"] = InventoryManagement(self.root, self)
             self.pages["CustomerManagement"] = CustomerManagement(self.root, self)  # <-- Add this line
-            self.pages["SalesManagement"] = SalesManagement(self.root, self)        # <-- Add this line
+            self.pages["SalesManagement"] = SalesManagement(self.root, self)  # Add back the second argument
 
-    def show_page(self, page_name):
+    def show_page(self, page_name, add_to_history=True):
         for widget in self.root.winfo_children():
             widget.destroy()
 
@@ -86,19 +89,28 @@ class MainApplication:
             page = CustomerManagement(self.root, self)
         elif page_name == "SalesManagement":
             from pages.sales_management import SalesManagement
-            page = SalesManagement(self.root, self)
+            page = SalesManagement(self.root, self)  # Add the controller argument
         else:
             messagebox.showerror("Error", f"Unknown page: {page_name}")
             return
 
         page.pack(fill=tk.BOTH, expand=True)
         page.update_user_info(self.current_user['username'], self.current_user['role'])
-        self.history.append(page_name)
-        
+        if add_to_history:
+            self.history.append(page_name)
+            self.future = []  # Clear redo history when new page is added
+
     def go_back(self):
         if len(self.history) > 1:
-            self.history.pop()
-            self.show_page(self.history[-1])
+            current = self.history.pop()
+            self.future.append(current)  # Add current page to redo history
+            self.show_page(self.history[-1], add_to_history=False)
+
+    def go_forward(self):
+        if self.future:
+            next_page = self.future.pop()
+            self.history.append(next_page)
+            self.show_page(next_page, add_to_history=False)
 
     def run(self):
         self.root.mainloop()

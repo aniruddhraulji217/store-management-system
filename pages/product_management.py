@@ -107,13 +107,21 @@ class ProductManagement(BasePage):
     def open_product_form(self, title, product=None):
         form = tk.Toplevel(self)
         form.title(title)
-        form.geometry("350x400")
+        form.geometry("350x500")
         form.resizable(False, False)
 
         name_var = tk.StringVar(value=product[1] if product else "")
         desc_var = tk.StringVar(value=product[2] if product else "")
         price_var = tk.StringVar(value=product[3] if product else "")
-        quantity_var = tk.StringVar(value=product[4] if product else "")
+        # Remove quantity from here; handled via purchase
+        # quantity_var = tk.StringVar(value=product[4] if product else "")
+
+        self.cursor.execute("SELECT supplier_id, name FROM suppliers")
+        suppliers = self.cursor.fetchall()
+        supplier_dict = {s['name']: s['supplier_id'] for s in suppliers}
+        supplier_names = list(supplier_dict.keys())
+
+        supplier_var = tk.StringVar(value=product[5] if product else (supplier_names[0] if supplier_names else ""))
 
         ttk.Label(form, text="Name:").pack(anchor='w', padx=20, pady=(20, 2))
         name_entry = ttk.Entry(form, textvariable=name_var)
@@ -123,54 +131,70 @@ class ProductManagement(BasePage):
         desc_entry = ttk.Entry(form, textvariable=desc_var)
         desc_entry.pack(fill=tk.X, padx=20)
 
-        ttk.Label(form, text="Price:").pack(anchor='w', padx=20, pady=(10, 2))
+        ttk.Label(form, text="Unit Price:").pack(anchor='w', padx=20, pady=(10, 2))
         price_entry = ttk.Entry(form, textvariable=price_var)
         price_entry.pack(fill=tk.X, padx=20)
 
-        ttk.Label(form, text="Quantity:").pack(anchor='w', padx=20, pady=(10, 2))
-        quantity_entry = ttk.Entry(form, textvariable=quantity_var)
-        quantity_entry.pack(fill=tk.X, padx=20)
-
-        self.cursor.execute("SELECT supplier_id, name FROM suppliers")
-        suppliers = self.cursor.fetchall()
-        supplier_dict = {s['name']: s['supplier_id'] for s in suppliers}
-        supplier_names = list(supplier_dict.keys())
-
-        supplier_var = tk.StringVar(value=product[5] if product else (supplier_names[0] if supplier_names else ""))
         ttk.Label(form, text="Supplier:").pack(anchor='w', padx=20, pady=(10, 2))
         supplier_combo = ttk.Combobox(form, textvariable=supplier_var, values=supplier_names, state='readonly')
         supplier_combo.pack(fill=tk.X, padx=20)
+
+        # Prompt for initial stock only when adding a new product
+        if not product:
+            ttk.Label(form, text="Initial Quantity:").pack(anchor='w', padx=20, pady=(10, 2))
+            initial_qty_var = tk.StringVar(value="0")
+            initial_qty_entry = ttk.Entry(form, textvariable=initial_qty_var)
+            initial_qty_entry.pack(fill=tk.X, padx=20)
 
         def save():
             name = name_var.get().strip()
             desc = desc_var.get().strip()
             price = price_var.get().strip()
-            quantity = quantity_var.get().strip()
             supplier_name = supplier_var.get()
             supplier_id = supplier_dict.get(supplier_name)
 
-            if not all([name, price, quantity, supplier_id]):
+            if not all([name, price, supplier_id]):
                 messagebox.showerror("Input Error", "Please fill all required fields.")
                 return
 
             try:
                 price_float = float(price)
-                quantity_int = int(quantity)
             except ValueError:
-                messagebox.showerror("Input Error", "Price must be a number and Quantity must be an integer.")
+                messagebox.showerror("Input Error", "Price must be a number.")
                 return
 
             try:
                 if product:
                     self.cursor.execute("""
-                        UPDATE products SET name=%s, description=%s, price=%s, quantity=%s, supplier_id=%s
+                        UPDATE products SET name=%s, description=%s, price=%s, supplier_id=%s
                         WHERE product_id=%s
-                    """, (name, desc, price_float, quantity_int, supplier_id, product[0]))
+                    """, (name, desc, price_float, supplier_id, product[0]))
                 else:
+                    # Insert product
                     self.cursor.execute("""
-                        INSERT INTO products (name, description, price, quantity, supplier_id)
-                        VALUES (%s, %s, %s, %s, %s)
-                    """, (name, desc, price_float, quantity_int, supplier_id))
+                        INSERT INTO products (name, description, price, supplier_id)
+                        VALUES (%s, %s, %s, %s)
+                    """, (name, desc, price_float, supplier_id))
+                    product_id = self.cursor.lastrowid
+
+                    # Prompt for initial purchase if quantity > 0
+                    initial_qty = int(initial_qty_var.get())
+                    if initial_qty > 0:
+                        # Create a purchase record
+                        self.cursor.execute(
+                            "INSERT INTO purchases (supplier_id, date, total_amount) VALUES (%s, NOW(), %s)",
+                            (supplier_id, price_float * initial_qty)
+                        )
+                        purchase_id = self.cursor.lastrowid
+                        self.cursor.execute(
+                            "INSERT INTO purchase_items (purchase_id, product_id, quantity, price) VALUES (%s, %s, %s, %s)",
+                            (purchase_id, product_id, initial_qty, price_float)
+                        )
+                        # Update inventory stock
+                        self.cursor.execute(
+                            "UPDATE products SET quantity = quantity + %s WHERE product_id = %s",
+                            (initial_qty, product_id)
+                        )
                 self.db.commit()
                 self.load_products()
                 form.destroy()
