@@ -41,11 +41,11 @@ class InventoryManagement(BasePage):
             ttk.Button(top_frame, text="Add Product", command=self.add_product).pack(side=tk.RIGHT, padx=5)
 
         # Inventory Table
-        columns = ("ID", "Name", "Category", "Quantity", "Unit Price", "Cost Price", "Total Cost", "Supplier")
+        columns = ("ID", "Name", "Category", "Quantity", "Unit Price", "Cost Price", "Total Cost", "Total Price", "Supplier")
         self.tree = ttk.Treeview(self.content, columns=columns, show='headings', height=15)
         for col in columns:
             self.tree.heading(col, text=col)
-            self.tree.column(col, anchor=tk.CENTER, width=120 if col not in ("Name", "Total Cost") else 180)
+            self.tree.column(col, anchor=tk.CENTER, width=120 if col not in ("Name", "Total Cost", "Total Price") else 180)
         self.tree.pack(fill=tk.BOTH, expand=True, pady=5)
         self.tree.bind("<Double-1>", self.on_row_double_click)
 
@@ -89,11 +89,12 @@ class InventoryManagement(BasePage):
         for row in self.cursor.fetchall():
             value = row['quantity'] * row['price']
             total_cost = row['quantity'] * (row['cost_price'] if row['cost_price'] else 0)
+            total_price = row['quantity'] * row['price']
             total_value += value
             total_items += row['quantity']
             self.tree.insert('', 'end', values=(
                 row['product_id'], row['name'], row['category'], row['quantity'],
-                row['price'], row['cost_price'], total_cost, row['supplier'] or ""))
+                row['price'], row['cost_price'], total_cost, total_price, row['supplier'] or ""))
         self.summary_label.config(text=f"Total Items: {total_items}    Inventory Value: ₹{total_value:,.2f}")
 
     def on_row_double_click(self, event):
@@ -175,6 +176,10 @@ class InventoryManagement(BasePage):
         suppliers = self.cursor.fetchall()
         supplier_dict = {s['name']: s['supplier_id'] for s in suppliers}
         supplier_names = list(supplier_dict.keys())
+        # Fetch current description from DB
+        self.cursor.execute("SELECT description FROM products WHERE product_id=%s", (values[0],))
+        desc_row = self.cursor.fetchone()
+        current_description = desc_row['description'] if desc_row else ""
         # Fields
         fields = [
             ("Name", tk.StringVar(value=values[1])),
@@ -182,8 +187,8 @@ class InventoryManagement(BasePage):
             ("Quantity", tk.StringVar(value=values[3])),
             ("Unit Price", tk.StringVar(value=values[4])),
             ("Cost Price", tk.StringVar(value=values[5])),
-            ("Supplier", tk.StringVar(value=values[7])),
-            ("Description", tk.StringVar())
+            ("Supplier", tk.StringVar(value=values[8] if values[8] in supplier_names else (supplier_names[0] if supplier_names else ""))),
+            ("Description", tk.StringVar(value=current_description))
         ]
         for label, var in fields:
             ttk.Label(form, text=label).pack(pady=5)
@@ -326,8 +331,8 @@ class InventoryManagement(BasePage):
         values = self.tree.item(selected[0], 'values')
         detail_win = tk.Toplevel(self)
         detail_win.title("Product Details")
-        detail_win.geometry("350x250")
-        fields = ["ID", "Name", "Category", "Quantity", "Unit Price", "Total Value"]
+        detail_win.geometry("350x300")
+        fields = ["ID", "Name", "Category", "Quantity", "Unit Price", "Cost Price", "Total Cost", "Total Price", "Supplier"]
         for i, f in enumerate(fields):
             ttk.Label(detail_win, text=f"{f}:", font=('Segoe UI', 11, 'bold')).pack(anchor="w", padx=16, pady=(10 if i==0 else 2, 2))
             ttk.Label(detail_win, text=values[i], font=('Segoe UI', 11)).pack(anchor="w", padx=32)

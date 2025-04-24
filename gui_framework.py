@@ -103,7 +103,7 @@ class BasePage(tk.Frame):
                 ('👥 Users Management', 'UserManagement'),
                 ('🚚 Suppliers', 'SupplierManagement'),
                 ('🛒 Purchases', 'PurchaseManagement'),
-                ('📊 Reports', 'ReportsPage'),
+                ('📊 Reports', 'Reports'),  # <-- Change 'ReportsPage' to 'Reports'
                 ('⚙️ Settings', 'SettingsPage')
             ]
         else:

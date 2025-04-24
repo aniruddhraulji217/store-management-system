@@ -37,8 +37,9 @@ class MainApplication:
         from pages.supplier_management import SupplierManagement
         from pages.purchase_management import PurchaseManagement
         from pages.inventory_management import InventoryManagement
-        from pages.customer_management import CustomerManagement  # <-- Add this line
-        from pages.sales_management import SalesManagement        # <-- Add this line
+        from pages.customer_management import CustomerManagement
+        from pages.sales_management import SalesManagement
+        from pages.report_page import ReportPage  # <-- Add this line
 
         self.pages = {}
 
@@ -49,13 +50,15 @@ class MainApplication:
             self.pages["SupplierManagement"] = SupplierManagement(self.root, self)
             self.pages["PurchaseManagement"] = PurchaseManagement(self.root, self)
             self.pages["Inventory"] = InventoryManagement(self.root, self)
-            self.pages["CustomerManagement"] = CustomerManagement(self.root, self)  # <-- Add this line
-            self.pages["SalesManagement"] = SalesManagement(self.root, self)  # Add back the second argument
+            self.pages["CustomerManagement"] = CustomerManagement(self.root, self)
+            self.pages["SalesManagement"] = SalesManagement(self.root, self)
+            self.pages["Reports"] = ReportPage(self.root, self)  # <-- Add this line
         else:
             self.pages["Dashboard"] = UserDashboard(self.root, self)
             self.pages["Inventory"] = InventoryManagement(self.root, self)
-            self.pages["CustomerManagement"] = CustomerManagement(self.root, self)  # <-- Add this line
-            self.pages["SalesManagement"] = SalesManagement(self.root, self)  # Add back the second argument
+            self.pages["CustomerManagement"] = CustomerManagement(self.root, self)
+            self.pages["SalesManagement"] = SalesManagement(self.root, self)
+            self.pages["Reports"] = ReportPage(self.root, self)  # <-- Add this line
 
     def show_page(self, page_name, add_to_history=True):
         for widget in self.root.winfo_children():
@@ -83,13 +86,16 @@ class MainApplication:
             page = PurchaseManagement(self.root, self)
         elif page_name == "Inventory":
             from pages.inventory_management import InventoryManagement
-            page = InventoryManagement(self.root, self)  
+            page = InventoryManagement(self.root, self)
         elif page_name == "CustomerManagement":
             from pages.customer_management import CustomerManagement
             page = CustomerManagement(self.root, self)
         elif page_name == "SalesManagement":
             from pages.sales_management import SalesManagement
-            page = SalesManagement(self.root, self)  # Add the controller argument
+            page = SalesManagement(self.root, self)
+        elif page_name == "Reports":
+            from pages.report_page import ReportPage
+            page = ReportPage(self.root, self)  # <-- Add this block
         else:
             messagebox.showerror("Error", f"Unknown page: {page_name}")
             return
